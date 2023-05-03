@@ -63,7 +63,7 @@ def get_ranking():
         from player_status, player, game, tournament, team\
         where player.id = player_status.player_id and game.game_no = player_status.game_no \
         and game.convention_name = tournament.tournament_id and team.team_id = player_status.team_id \
-        and tournament.regular = 1\
+        and tournament.official = 1\
         and player_status.played = 1 group by player.name_group_id) as a, player \
         where a.name_id = player.id"
         
@@ -314,8 +314,7 @@ def get_player():
             if d["regular"] == 1:
                 if division not in caps_league:
                     caps_league[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
-                    print(caps_league)
-                    
+                                        
                 if division not in caps_total:
                     caps_total[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
                     
@@ -379,7 +378,6 @@ def get_player():
                     caps_total[division]["dg"] += d["dg"]
                 
             if d["is_changedivision"] == 1:
-                print(d)
                 if division not in caps_change:
                     caps_change[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
