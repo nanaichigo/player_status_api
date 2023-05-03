@@ -7,12 +7,14 @@ import json
 from flask import Flask, jsonify, request, abort
 from flask.json import JSONEncoder
 from myexception import MyException, InputException, ServerException
-import MySQLdb
+
 import sys 
 import traceback
 import json 
 import configparser
-#from flask_cors import CORS
+from flask_cors import CORS
+
+#from DBAccess import DBAccess
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -88,21 +90,9 @@ def get_ranking():
             
         query = f"{player_SQL} {range} order by {type_query} desc"
         
-        
-        data = []
-        connection = MySQLdb.connect(
-            host=HOST,
-            user=USER,
-            passwd=PASSWD,
-            charset="utf8",
-            db=RUGBY_DBNAME)        
-        with connection.cursor(MySQLdb.cursors.DictCursor) as cur:
-            cur.execute(query)
-            for d in cur.fetchall():
-                data.append(d)
-        
-        connection.close()
-        
+        with DBAccess(HOST, USER, PASSWD, RUGBY_DBNAME) as access:
+            data = access.getList(query)
+ 
         response = {}
         
         response["body"] = {
@@ -240,20 +230,9 @@ def get_custom_ranking():
         and {tournament_all_query} \
         and player_status.played = 1 group by player.name_group_id) as a, player \
         where a.name_id = player.id {range} order by {type_query} desc"
-        print(query)
-        data = []
-        connection = MySQLdb.connect(
-            host=HOST,
-            user=USER,
-            passwd=PASSWD,
-            charset="utf8",
-            db=RUGBY_DBNAME)        
-        with connection.cursor(MySQLdb.cursors.DictCursor) as cur:
-            cur.execute(query)
-            for d in cur.fetchall():
-                data.append(d)
         
-        connection.close()
+        with DBAccess(HOST, USER, PASSWD, RUGBY_DBNAME) as access:
+            data = access.getList(query)
         
         response = {}
         
@@ -278,7 +257,7 @@ def get_player():
             
         query = f"select season.season_name,\
                 tournament.name_abbreviation as tournament, tournament.division, tournament.regular, tournament.playoff, \
-                tournament.is_cup, tournament.is_underdivision , tournament.is_changedivision, tournament.is_other,\
+                tournament.is_cup, tournament.is_underdivision , tournament.is_changedivision, tournament.is_other, tournament.is_preseason,\
                 team.team_abbreviation as team, player.name, \
                 date, played, score, try, goal, pg, dg, goal_attempt, pg_attempt, dg_attempt  \
                 from player_status, game, tournament, team, player, season\
@@ -288,21 +267,8 @@ def get_player():
                 and player.id =player_status.player_id \
                 and tournament.season_id  = season.season_id order by date asc"
 
-        data = []
-        connection = MySQLdb.connect(
-            host=HOST,
-            user=USER,
-            passwd=PASSWD,
-            charset="utf8",
-            db=RUGBY_DBNAME)        
-        with connection.cursor(MySQLdb.cursors.DictCursor) as cur:
-            cur.execute(query)
-            for d in cur.fetchall():
-                data.append(d)
-        
-        connection.close()
-        
-
+        with DBAccess(HOST, USER, PASSWD, RUGBY_DBNAME) as access:
+            data = access.getList(query)
         
         profile = {}
         profile["first_played"] = {"date": data[0]["date"], "team":data[0]["team"]}
@@ -319,10 +285,15 @@ def get_player():
         caps_po = {}
         caps_cup = {}
         caps_change = {}
-        cups_under = {}
+        caps_under = {}
+        caps_preseason = {}
+        caps_other = {}
+        caps_total = {}
+        
+        INITIALIZE_DICT_KEY = ["played","score","try","goal","pg","dg"]
         
         for idx, d in enumerate(data):
-            if(d["regular"] or d["playoff"] or d["is_cup"] or d["is_changedivision"] or d["is_underdivision"]):
+            if(d["regular"] == 1 or d["playoff"] == 1 or d["is_cup"] == 1 or d["is_changedivision"] == 1 or d["is_underdivision"] == 1):
                 if tmp_team != d["team"]:
                     if tmp_team_season == d["season_name"]:
                         profile["team"].append(f"{tmp_team}({tmp_team_season})")
@@ -336,105 +307,166 @@ def get_player():
                         profile["name"].append(f"{tmp_name}({tmp_name_season})")
                     else:
                         profile["name"].append(f"{tmp_name}({tmp_name_season}～{data[idx-1]['season_name']})")
-                    tmp_name = d["team"]
+                    tmp_name = d["name"]
                     tmp_name_season = d["season_name"]
                     
+            division = d["division"]
+            if d["regular"] == 1:
+                if division not in caps_league:
+                    caps_league[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
+                    print(caps_league)
+                    
+                if division not in caps_total:
+                    caps_total[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
+                    
+                if d["played"] == 1:
+                    caps_league[division]["played"] += 1
+                    caps_league[division]["score"] += d["score"]
+                    caps_league[division]["try"] += d["try"]
+                    caps_league[division]["goal"] += d["goal"]
+                    caps_league[division]["pg"] += d["pg"]
+                    caps_league[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]
+                
+            if d["playoff"] == 1:
+                if division not in caps_po:
+                    caps_po[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if d["played"] == 1:
+                    caps_po[division]["played"] += 1
+                    caps_po[division]["score"] += d["score"]
+                    caps_po[division]["try"] += d["try"]
+                    caps_po[division]["goal"] += d["goal"]
+                    caps_po[division]["pg"] += d["pg"]
+                    caps_po[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]
+                
+            if d["is_cup"] == 1:
+                if division not in caps_cup:
+                    caps_cup[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if d["played"] == 1:
+                    caps_cup[division]["played"] += 1
+                    caps_cup[division]["score"] += d["score"]
+                    caps_cup[division]["try"] += d["try"]
+                    caps_cup[division]["goal"] += d["goal"]
+                    caps_cup[division]["pg"] += d["pg"]
+                    caps_cup[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]
+                
+            if d["is_changedivision"] == 1:
+                print(d)
+                if division not in caps_change:
+                    caps_change[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if d["played"] == 1:
+                    caps_change[division]["played"] += 1
+                    caps_change[division]["score"] += d["score"]
+                    caps_change[division]["try"] += d["try"]
+                    caps_change[division]["goal"] += d["goal"]
+                    caps_change[division]["pg"] += d["pg"]
+                    caps_change[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]
             
-            if d["regular"]:
-                if d["division"] not in caps_league:
-                    caps_league[d["division"]] = {
-                        "played":0,
-                        "score":0,
-                        "try":0,
-                        "goal":0,
-                        "pg":0,
-                        "dg":0,
-                    }
+            if d["is_underdivision"] == 1:
+                if division not in caps_under:
+                    caps_under[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
-                if d["played"]:
-                    caps_league[d["division"]]["played"] += d["played"]
-                    caps_league[d["division"]]["score"] += d["score"]
-                    caps_league[d["division"]]["try"] += d["try"]
-                    caps_league[d["division"]]["goal"] += d["goal"]
-                    caps_league[d["division"]]["pg"] += d["pg"]
-                    caps_league[d["division"]]["dg"] += d["dg"]
-                
-            if d["playoff"]:
-                if d["division"] not in caps_po:
-                    caps_po[d["division"]] = {
-                        "played":0,
-                        "score":0,
-                        "try":0,
-                        "goal":0,
-                        "pg":0,
-                        "dg":0,
-                    }
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
-                if d["played"]:
-                    caps_po[d["division"]]["played"] += d["played"]
-                    caps_po[d["division"]]["score"] += d["score"]
-                    caps_po[d["division"]]["try"] += d["try"]
-                    caps_po[d["division"]]["goal"] += d["goal"]
-                    caps_po[d["division"]]["pg"] += d["pg"]
-                    caps_po[d["division"]]["dg"] += d["dg"]
-                
-            if d["is_cup"]:
-                if d["division"] not in caps_cup:
-                    caps_cup[d["division"]] = {
-                        "played":0,
-                        "score":0,
-                        "try":0,
-                        "goal":0,
-                        "pg":0,
-                        "dg":0,
-                    }
+                if d["played"] == 1:
+                    caps_under[division]["played"] += 1
+                    caps_under[division]["score"] += d["score"]
+                    caps_under[division]["try"] += d["try"]
+                    caps_under[division]["goal"] += d["goal"]
+                    caps_under[division]["pg"] += d["pg"]
+                    caps_under[division]["dg"] += d["dg"]
                     
-                if d["played"]:
-                    caps_cup[d["division"]]["played"] += d["played"]
-                    caps_cup[d["division"]]["score"] += d["score"]
-                    caps_cup[d["division"]]["try"] += d["try"]
-                    caps_cup[d["division"]]["goal"] += d["goal"]
-                    caps_cup[d["division"]]["pg"] += d["pg"]
-                    caps_cup[d["division"]]["dg"] += d["dg"]
-                
-            if d["is_changedivision"]:
-                if d["division"] not in caps_change:
-                    caps_change[d["division"]] = {
-                        "played":0,
-                        "score":0,
-                        "try":0,
-                        "goal":0,
-                        "pg":0,
-                        "dg":0,
-                    }
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]
                     
-                if d["played"]:
-                    caps_change[d["division"]]["played"] += d["played"]
-                    caps_change[d["division"]]["score"] += d["score"]
-                    caps_change[d["division"]]["try"] += d["try"]
-                    caps_change[d["division"]]["goal"] += d["goal"]
-                    caps_change[d["division"]]["pg"] += d["pg"]
-                    caps_change[d["division"]]["dg"] += d["dg"]
-            
-            if d["is_underdivision"]:
-                if d["division"] not in cups_under:
-                    cups_under[d["division"]] = {
-                        "played":0,
-                        "score":0,
-                        "try":0,
-                        "goal":0,
-                        "pg":0,
-                        "dg":0,
-                    }
+            if d["is_preseason"] == 1:
+                if division not in caps_preseason:
+                    caps_preseason[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
-                if d["played"]:
-                    cups_under[d["division"]]["played"] += d["played"]
-                    cups_under[d["division"]]["score"] += d["score"]
-                    cups_under[d["division"]]["try"] += d["try"]
-                    cups_under[d["division"]]["goal"] += d["goal"]
-                    cups_under[d["division"]]["pg"] += d["pg"]
-                    cups_under[d["division"]]["dg"] += d["dg"]
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
+                if d["played"] == 1:
+                    caps_preseason[division]["played"] += 1
+                    caps_preseason[division]["score"] += d["score"]
+                    caps_preseason[division]["try"] += d["try"]
+                    caps_preseason[division]["goal"] += d["goal"]
+                    caps_preseason[division]["pg"] += d["pg"]
+                    caps_preseason[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]    
+                    
+            if d["is_other"] == 1:
+                if division not in caps_other:
+                    caps_other[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if division not in caps_total:
+                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
+                    
+                if d["played"] == 1:
+                    caps_other[division]["played"] += 1
+                    caps_other[division]["score"] += d["score"]
+                    caps_other[division]["try"] += d["try"]
+                    caps_other[division]["goal"] += d["goal"]
+                    caps_other[division]["pg"] += d["pg"]
+                    caps_other[division]["dg"] += d["dg"]
+                    
+                    caps_total[division]["played"] += 1
+                    caps_total[division]["score"] += d["score"]
+                    caps_total[division]["try"] += d["try"]
+                    caps_total[division]["goal"] += d["goal"]
+                    caps_total[division]["pg"] += d["pg"]
+                    caps_total[division]["dg"] += d["dg"]    
+                     
         if tmp_team_season == data[-1]["season_name"]:
             profile["team"].append(f"{tmp_team}({tmp_team_season})")
         else:
@@ -449,12 +481,15 @@ def get_player():
         
         response["body"] = {
             "data": data,
-            "cups":{
-                "caps_league": caps_league,
-                "caps_po": caps_po,
-                "caps_cup": caps_cup,
-                "caps_change": caps_change,
-                "cups_under": cups_under,
+            "caps_types":{
+                "league": caps_league,
+                "po": caps_po,
+                "cup": caps_cup,
+                "change": caps_change,
+                "under": caps_under,
+                "preseason": caps_preseason,
+                "other":caps_other,
+                "total": caps_total,
             },
             "profile": profile,
         }        
