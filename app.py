@@ -256,8 +256,10 @@ def get_player():
         player_id = req.get("player_id", 0, type=int)
             
         query = f"select season.season_name,\
-                tournament.name_abbreviation as tournament, tournament.division, tournament.regular, tournament.playoff, \
-                tournament.is_cup, tournament.is_underdivision , tournament.is_changedivision, tournament.is_other, tournament.is_preseason,\
+                tournament.name_abbreviation as tournament, tournament.division, tournament.section, \
+                tournament.regular, tournament.playoff, \
+                tournament.is_cup, tournament.is_underdivision , tournament.is_changedivision, \
+                tournament.is_other, tournament.is_preseason,\
                 team.team_abbreviation as team, player.name, \
                 date, played, score, try, goal, pg, dg, goal_attempt, pg_attempt, dg_attempt  \
                 from player_status, game, tournament, team, player, season\
@@ -288,7 +290,6 @@ def get_player():
         caps_under = {}
         caps_preseason = {}
         caps_other = {}
-        caps_total = {}
         
         INITIALIZE_DICT_KEY = ["played","score","try","goal","pg","dg"]
         
@@ -315,9 +316,6 @@ def get_player():
                 if division not in caps_league:
                     caps_league[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
                                         
-                if division not in caps_total:
-                    caps_total[division] = {key: 0 for key in INITIALIZE_DICT_KEY}
-                    
                 if d["played"] == 1:
                     caps_league[division]["played"] += 1
                     caps_league[division]["score"] += d["score"]
@@ -325,20 +323,10 @@ def get_player():
                     caps_league[division]["goal"] += d["goal"]
                     caps_league[division]["pg"] += d["pg"]
                     caps_league[division]["dg"] += d["dg"]
-                    
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]
                 
             if d["playoff"] == 1:
                 if division not in caps_po:
                     caps_po[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
                 if d["played"] == 1:
                     caps_po[division]["played"] += 1
@@ -347,20 +335,10 @@ def get_player():
                     caps_po[division]["goal"] += d["goal"]
                     caps_po[division]["pg"] += d["pg"]
                     caps_po[division]["dg"] += d["dg"]
-                    
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]
                 
             if d["is_cup"] == 1:
                 if division not in caps_cup:
                     caps_cup[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
                 if d["played"] == 1:
                     caps_cup[division]["played"] += 1
@@ -369,20 +347,10 @@ def get_player():
                     caps_cup[division]["goal"] += d["goal"]
                     caps_cup[division]["pg"] += d["pg"]
                     caps_cup[division]["dg"] += d["dg"]
-                    
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]
                 
             if d["is_changedivision"] == 1:
                 if division not in caps_change:
                     caps_change[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
                 if d["played"] == 1:
                     caps_change[division]["played"] += 1
@@ -391,20 +359,10 @@ def get_player():
                     caps_change[division]["goal"] += d["goal"]
                     caps_change[division]["pg"] += d["pg"]
                     caps_change[division]["dg"] += d["dg"]
-                    
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]
             
             if d["is_underdivision"] == 1:
                 if division not in caps_under:
                     caps_under[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
                     
                 if d["played"] == 1:
                     caps_under[division]["played"] += 1
@@ -414,20 +372,10 @@ def get_player():
                     caps_under[division]["pg"] += d["pg"]
                     caps_under[division]["dg"] += d["dg"]
                     
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]
-                    
             if d["is_preseason"] == 1:
                 if division not in caps_preseason:
                     caps_preseason[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
+                      
                 if d["played"] == 1:
                     caps_preseason[division]["played"] += 1
                     caps_preseason[division]["score"] += d["score"]
@@ -436,20 +384,10 @@ def get_player():
                     caps_preseason[division]["pg"] += d["pg"]
                     caps_preseason[division]["dg"] += d["dg"]
                     
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]    
-                    
             if d["is_other"] == 1:
                 if division not in caps_other:
                     caps_other[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
-                if division not in caps_total:
-                    caps_total[division] = {key:0 for key in INITIALIZE_DICT_KEY}
-                    
+ 
                 if d["played"] == 1:
                     caps_other[division]["played"] += 1
                     caps_other[division]["score"] += d["score"]
@@ -457,13 +395,6 @@ def get_player():
                     caps_other[division]["goal"] += d["goal"]
                     caps_other[division]["pg"] += d["pg"]
                     caps_other[division]["dg"] += d["dg"]
-                    
-                    caps_total[division]["played"] += 1
-                    caps_total[division]["score"] += d["score"]
-                    caps_total[division]["try"] += d["try"]
-                    caps_total[division]["goal"] += d["goal"]
-                    caps_total[division]["pg"] += d["pg"]
-                    caps_total[division]["dg"] += d["dg"]    
                      
         if tmp_team_season == data[-1]["season_name"]:
             profile["team"].append(f"{tmp_team}({tmp_team_season})")
@@ -487,7 +418,6 @@ def get_player():
                 "under": caps_under,
                 "preseason": caps_preseason,
                 "other":caps_other,
-                "total": caps_total,
             },
             "profile": profile,
         }        
