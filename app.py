@@ -12,9 +12,9 @@ import sys
 import traceback
 import json 
 import configparser
-from flask_cors import CORS
+#from flask_cors import CORS
 
-#from DBAccess import DBAccess
+from DBAccess import DBAccess
 
 sys.path.insert(0, os.path.dirname(__file__))
 
