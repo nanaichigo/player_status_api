@@ -63,7 +63,7 @@ def get_ranking():
         from player_status, player, game, tournament, team\
         where player.id = player_status.player_id and game.game_no = player_status.game_no \
         and game.convention_name = tournament.tournament_id and team.team_id = player_status.team_id \
-        and tournament.official = 1\
+        and tournament.is_official = 1\
         and player_status.played = 1 group by player.name_group_id) as a, player \
         where a.name_id = player.id"
         
